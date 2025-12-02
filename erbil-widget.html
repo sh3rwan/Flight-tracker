@@ -70,9 +70,11 @@
                 Erbil Flight Status
             </h1>
             <button id="refresh-button" class="bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105 disabled:opacity-50 flex items-center">
+                <!-- Loading Icon (Spinning) -->
                 <svg id="refresh-icon" class="w-5 h-5 mr-2 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0014 4h-1.581m0 0l-1.581 1.581M10 20v-5h-.582m-15.356-2A8.001 8.001 0 0010 20h1.581m0 0l1.581-1.581" />
                 </svg>
+                <!-- Static Refresh Icon -->
                 <svg id="static-icon" class="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 20h5M20 4h-5" />
                 </svg>
@@ -116,8 +118,8 @@
 
     <script>
         // --- Configuration ---
-        // !!! IMPORTANT: CHANGE THIS TO YOUR DEPLOYED BACKEND URL (e.g., https://your-app.vercel.app/api/flights) !!!
-        const API_BASE_URL = 'https://erbil-api.vercel.app'; 
+        // 🚨 CRITICAL FIX: The base URL must include the routing prefix defined in vercel.json.
+        const API_BASE_URL = 'https://erbil-api.vercel.app/api/flights'; 
         const AUTO_REFRESH_INTERVAL_MS = 300000; // 5 minutes
 
         // --- DOM Elements ---
@@ -197,6 +199,7 @@
             staticIcon.classList.add('hidden');
 
             try {
+                // Endpoint now correctly appends /arrivals or /departures to the full API_BASE_URL (which includes /api/flights)
                 const endpoint = currentType === 'all' ? '' : `/${currentType}`;
                 const data = await fetchWithRetry(`${API_BASE_URL}${endpoint}`);
                 
@@ -207,10 +210,12 @@
 
             } catch (error) {
                 console.error("Fetch Data Error:", error);
-                errorDetails.textContent = `Could not load flight data. The server might be down or misconfigured. (${error.message})`;
+                errorDetails.textContent = `Could not load flight data. The server might be down or misconfigured, or the URL is incorrect. (${error.message})`;
                 errorContainer.classList.remove('hidden');
-                container.innerHTML = ''; // Clear old content
-                container.appendChild(errorContainer); // Re-add error container
+                // Ensure correct element visibility when error occurs
+                loadingIndicator.classList.add('hidden');
+                container.innerHTML = ''; 
+                container.appendChild(errorContainer);
                 container.appendChild(updatedElement);
             } finally {
                 isFetching = false;
@@ -231,7 +236,7 @@
             staticIcon.classList.add('hidden');
 
             try {
-                // 1. Trigger backend refresh. We must use the base URL and append /refresh.
+                // 1. Trigger backend refresh. This correctly resolves to https://erbil-api.vercel.app/api/flights/refresh
                 const refreshUrl = API_BASE_URL.endsWith('/flights') ? 
                     API_BASE_URL.replace('/flights', '/flights/refresh') : 
                     `${API_BASE_URL}/refresh`;
@@ -350,10 +355,12 @@
         refreshButton.addEventListener('click', refreshData);
 
         // Initial data load
-        fetchData();
-
-        // Setup auto-refresh
-        setInterval(refreshData, AUTO_REFRESH_INTERVAL_MS);
+        // Only run this when the entire document is loaded
+        window.addEventListener('load', () => {
+             fetchData();
+             // Setup auto-refresh
+             setInterval(refreshData, AUTO_REFRESH_INTERVAL_MS);
+        });
         
     </script>
 </body>

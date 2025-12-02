@@ -4,287 +4,121 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Erbil Airport Flight Status</title>
-    <!-- Load Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom styles for better aesthetics and readability */
-        :root {
-            --primary-color: #0d9488; /* Teal */
-            --secondary-color: #0f766e;
-            --background-start: #f0fdfa;
-            --background-end: #ccfbf1;
-        }
-
-        /* Use Inter font */
+        :root { --primary-color: #0d9488; --background-start: #f0fdfa; --background-end: #ccfbf1; }
         html { font-family: 'Inter', sans-serif; }
-
-        .flight-widget {
-            max-width: 900px;
-            margin: 0 auto;
-            border-radius: 1.5rem;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            background-image: linear-gradient(180deg, var(--background-start) 0%, var(--background-end) 100%);
-            border: 1px solid var(--primary-color);
-        }
-        
-        /* Status styling */
+        .flight-widget { max-width: 900px; margin: 0 auto; border-radius: 1.5rem; background-image: linear-gradient(180deg, var(--background-start) 0%, var(--background-end) 100%); border: 1px solid var(--primary-color); }
         .status-scheduled { background-color: #f0fdfa; color: #0f766e; }
         .status-boarding { background-color: #fef9c3; color: #ca8a04; }
         .status-landed { background-color: #d1fae5; color: #065f46; }
         .status-delayed { background-color: #fee2e2; color: #b91c1c; }
         .status-cancelled { background-color: #fce7f3; color: #9d174d; }
-
-        /* Responsive table behavior */
         @media (max-width: 768px) {
-            .responsive-table tr {
-                display: block;
-                margin-bottom: 0.75rem;
-                border: 1px solid #e5e7eb;
-                border-radius: 0.5rem;
-                padding: 0.5rem;
-            }
-            .responsive-table th, .responsive-table td {
-                padding: 0.25rem 0.5rem;
-                display: block;
-                text-align: right !important;
-            }
-            .responsive-table td:before {
-                content: attr(data-label);
-                float: left;
-                font-weight: 600;
-                text-transform: uppercase;
-                margin-right: 1rem;
-                color: #4b5563;
-            }
-            .responsive-table thead {
-                display: none;
-            }
+            .responsive-table tr { display: block; margin-bottom: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.5rem; }
+            .responsive-table th, .responsive-table td { padding: 0.25rem 0.5rem; display: block; text-align: right !important; }
+            .responsive-table td:before { content: attr(data-label); float: left; font-weight: 600; text-transform: uppercase; margin-right: 1rem; color: #4b5563; }
+            .responsive-table thead { display: none; }
         }
     </style>
 </head>
 <body class="p-4 bg-gray-50 min-h-screen">
 
-    <div id="flight-widget" class="flight-widget p-4 sm:p-6">
+    <div id="flight-widget" class="flight-widget p-4 sm:p-6 shadow-2xl">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-            <h1 class="text-3xl font-extrabold text-gray-800 mb-2 sm:mb-0">
-                Erbil Flight Status
-            </h1>
+            <h1 class="text-3xl font-extrabold text-gray-800 mb-2 sm:mb-0">Erbil Flight Status</h1>
             <button id="refresh-button" class="bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105 disabled:opacity-50 flex items-center">
-                <!-- Loading Icon (Spinning) -->
-                <svg id="refresh-icon" class="w-5 h-5 mr-2 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0014 4h-1.581m0 0l-1.581 1.581M10 20v-5h-.582m-15.356-2A8.001 8.001 0 0010 20h1.581m0 0l1.581-1.581" />
-                </svg>
-                <!-- Static Refresh Icon -->
-                <svg id="static-icon" class="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 20h5M20 4h-5" />
-                </svg>
-                Refresh
+                <span id="btn-text">Refresh</span>
             </button>
         </div>
 
-        <!-- Tab Controls -->
         <div class="flex border-b border-gray-300 mb-4 space-x-2 sm:space-x-4">
-            <button data-type="all" class="tab-button py-2 px-3 sm:px-4 text-sm font-medium transition duration-150 border-b-2 border-transparent text-gray-600 hover:text-teal-600 active-tab">
-                All Flights
-            </button>
-            <button data-type="arrivals" class="tab-button py-2 px-3 sm:px-4 text-sm font-medium transition duration-150 border-b-2 border-transparent text-gray-600 hover:text-teal-600">
-                Arrivals
-            </button>
-            <button data-type="departures" class="tab-button py-2 px-3 sm:px-4 text-sm font-medium transition duration-150 border-b-2 border-transparent text-gray-600 hover:text-teal-600">
-                Departures
-            </button>
+            <button data-type="all" class="tab-button py-2 px-3 sm:px-4 text-sm font-medium transition duration-150 border-b-2 border-transparent text-teal-600 border-teal-600 active-tab">All Flights</button>
+            <button data-type="arrivals" class="tab-button py-2 px-3 sm:px-4 text-sm font-medium transition duration-150 border-b-2 border-transparent text-gray-600 hover:text-teal-600">Arrivals</button>
+            <button data-type="departures" class="tab-button py-2 px-3 sm:px-4 text-sm font-medium transition duration-150 border-b-2 border-transparent text-gray-600 hover:text-teal-600">Departures</button>
         </div>
 
-        <!-- Widget Content Area -->
         <div id="flight-list-container">
-            <!-- Loading/Error/Table will be rendered here -->
-            <div id="loading-indicator" class="text-center py-10 text-teal-600">
-                <svg class="animate-spin h-8 w-8 text-teal-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p class="mt-2 text-sm font-medium">Loading flight data...</p>
-            </div>
-            
-            <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative">
-                <strong class="font-bold">Error!</strong>
-                <span class="block sm:inline" id="error-details">Could not connect to the flight data server. Please try refreshing.</span>
-            </div>
-
+            <div id="loading-indicator" class="text-center py-10 text-teal-600">Loading...</div>
+            <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative"></div>
             <div id="last-updated" class="text-xs text-gray-500 mt-4 text-right hidden"></div>
-
         </div>
     </div>
 
     <script>
-        // --- Configuration ---
-        // 🚨 CRITICAL FIX: The base URL must include the routing prefix defined in vercel.json.
+        // ---------------- CONFIGURATION ----------------
+        // This includes the full path to your API
         const API_BASE_URL = 'https://erbil-api.vercel.app/api/flights'; 
-        const AUTO_REFRESH_INTERVAL_MS = 300000; // 5 minutes
+        // -----------------------------------------------
 
-        // --- DOM Elements ---
         const container = document.getElementById('flight-list-container');
         const loadingIndicator = document.getElementById('loading-indicator');
         const errorContainer = document.getElementById('error-message');
-        const errorDetails = document.getElementById('error-details');
         const refreshButton = document.getElementById('refresh-button');
-        const refreshIcon = document.getElementById('refresh-icon');
-        const staticIcon = document.getElementById('static-icon');
         const updatedElement = document.getElementById('last-updated');
         const tabButtons = document.querySelectorAll('.tab-button');
+        let currentType = 'all'; 
 
-        // --- State ---
-        let currentType = 'all'; // 'all', 'arrivals', 'departures'
-        let cachedFlights = [];
-        let isFetching = false;
-        
-        // --- Utility Functions ---
-
-        /** Converts status text to a clean class name for styling */
-        const getStatusClass = (status) => {
-            const normalized = status.toLowerCase().replace(/[^a-z]/g, '');
-            if (normalized.includes('landed') || normalized.includes('arrived')) return 'status-landed';
-            if (normalized.includes('boarding')) return 'status-boarding';
-            if (normalized.includes('delayed')) return 'status-delayed';
-            if (normalized.includes('cancelled')) return 'status-cancelled';
+        const getStatusClass = (s) => {
+            s = s.toLowerCase();
+            if (s.includes('landed') || s.includes('arrived')) return 'status-landed';
+            if (s.includes('boarding')) return 'status-boarding';
+            if (s.includes('delayed')) return 'status-delayed';
+            if (s.includes('cancelled')) return 'status-cancelled';
             return 'status-scheduled';
         };
 
-        /** Formats date/time for display */
-        const formatTime = (isoString) => {
-            if (!isoString) return 'N/A';
-            try {
-                const date = new Date(isoString);
-                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            } catch {
-                return 'N/A';
-            }
-        };
-
-        /**
-         * Generic function for API calls with Exponential Backoff
-         */
-        const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(url, options);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                } catch (error) {
-                    if (i < maxRetries - 1) {
-                        const delay = Math.pow(2, i) * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    } else {
-                        throw error;
-                    }
-                }
-            }
-        };
-
-
-        // --- Core Logic ---
-
-        /**
-         * Fetches flight data from the proxy server.
-         */
         async function fetchData() {
-            if (isFetching) return;
-            isFetching = true;
             loadingIndicator.classList.remove('hidden');
             errorContainer.classList.add('hidden');
             refreshButton.disabled = true;
-            refreshIcon.classList.remove('hidden');
-            staticIcon.classList.add('hidden');
-
-            try {
-                // Endpoint now correctly appends /arrivals or /departures to the full API_BASE_URL (which includes /api/flights)
-                const endpoint = currentType === 'all' ? '' : `/${currentType}`;
-                const data = await fetchWithRetry(`${API_BASE_URL}${endpoint}`);
-                
-                cachedFlights = data.flights || [];
-                const lastFetchedTime = data.lastFetched ? new Date(data.lastFetched) : null;
-                
-                renderTable(cachedFlights, lastFetchedTime);
-
-            } catch (error) {
-                console.error("Fetch Data Error:", error);
-                errorDetails.textContent = `Could not load flight data. The server might be down or misconfigured, or the URL is incorrect. (${error.message})`;
-                errorContainer.classList.remove('hidden');
-                // Ensure correct element visibility when error occurs
-                loadingIndicator.classList.add('hidden');
-                container.innerHTML = ''; 
-                container.appendChild(errorContainer);
-                container.appendChild(updatedElement);
-            } finally {
-                isFetching = false;
-                refreshButton.disabled = false;
-                refreshIcon.classList.add('hidden');
-                staticIcon.classList.remove('hidden');
-            }
-        }
-
-        /**
-         * Forces the backend to refresh its cached data and then fetches the new data.
-         */
-        async function refreshData() {
-            if (isFetching) return;
-            isFetching = true;
-            refreshButton.disabled = true;
-            refreshIcon.classList.remove('hidden');
-            staticIcon.classList.add('hidden');
-
-            try {
-                // 1. Trigger backend refresh. This correctly resolves to https://erbil-api.vercel.app/api/flights/refresh
-                const refreshUrl = API_BASE_URL.endsWith('/flights') ? 
-                    API_BASE_URL.replace('/flights', '/flights/refresh') : 
-                    `${API_BASE_URL}/refresh`;
-
-                await fetchWithRetry(refreshUrl, { method: 'POST' });
-                
-                // 2. Fetch the newly refreshed data
-                await fetchData();
-            } catch (error) {
-                console.error("Refresh Data Error:", error);
-                errorDetails.textContent = `Failed to force refresh. Backend server might be unreachable. (${error.message})`;
-                errorContainer.classList.remove('hidden');
-            } finally {
-                isFetching = false;
-                refreshButton.disabled = false;
-                refreshIcon.classList.add('hidden');
-                staticIcon.classList.remove('hidden');
-            }
-        }
-
-        /**
-         * Renders the flight table based on the fetched data.
-         * @param {Array} flights - The array of flight objects.
-         * @param {Date|null} lastFetchedTime - The time the data was fetched.
-         */
-        function renderTable(flights, lastFetchedTime) {
+            refreshButton.textContent = 'Loading...';
             
-            // Clear current content, but keep loading/error/updated elements
-            while (container.firstChild) {
-                if (container.firstChild !== loadingIndicator && container.firstChild !== errorContainer && container.firstChild !== updatedElement) {
-                    container.removeChild(container.firstChild);
-                } else {
-                    container.firstChild.classList.add('hidden');
-                }
+            try {
+                const endpoint = currentType === 'all' ? '' : `/${currentType}`;
+                const res = await fetch(`${API_BASE_URL}${endpoint}`);
+                if (!res.ok) throw new Error(`Server returned ${res.status}`);
+                const data = await res.json();
+                renderTable(data.flights || [], data.lastFetched ? new Date(data.lastFetched) : null);
+            } catch (error) {
+                console.error(error);
+                errorContainer.textContent = `Error: ${error.message}. Is the server running?`;
+                errorContainer.classList.remove('hidden');
+                container.appendChild(errorContainer); // Ensure error is visible
+                // Hide table if error
+                const oldTable = container.querySelector('table');
+                if(oldTable) oldTable.remove();
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                refreshButton.disabled = false;
+                refreshButton.textContent = 'Refresh';
             }
+        }
+
+        async function refreshData() {
+            try {
+                // Determine refresh URL correctly
+                const refreshUrl = API_BASE_URL.endsWith('/flights') 
+                    ? API_BASE_URL.replace('/flights', '/flights/refresh') 
+                    : `${API_BASE_URL}/refresh`;
+                
+                await fetch(refreshUrl, { method: 'POST' });
+                await fetchData();
+            } catch (e) { console.error(e); }
+        }
+
+        function renderTable(flights, lastFetchedTime) {
+            // Remove old table/messages
+            container.querySelectorAll('table, .no-data').forEach(el => el.remove());
             updatedElement.classList.remove('hidden');
 
-            if (lastFetchedTime) {
-                updatedElement.innerHTML = `Data last updated by server: ${lastFetchedTime.toLocaleTimeString()} (Auto-refresh every ${AUTO_REFRESH_INTERVAL_MS / 60000} mins)`;
-            } else {
-                updatedElement.innerHTML = `Data source status: Unknown`;
-            }
+            if (lastFetchedTime) updatedElement.textContent = `Updated: ${lastFetchedTime.toLocaleTimeString()}`;
 
             if (flights.length === 0) {
-                const noData = document.createElement('div');
-                noData.className = 'text-center py-10 text-gray-500 bg-white/50 rounded-xl';
-                noData.textContent = `No ${currentType !== 'all' ? currentType : ''} flights available right now.`;
-                container.insertBefore(noData, updatedElement);
+                const div = document.createElement('div');
+                div.className = 'no-data text-center py-10 text-gray-500';
+                div.textContent = 'No flights found.';
+                container.insertBefore(div, updatedElement);
                 return;
             }
 
@@ -293,75 +127,36 @@
             table.innerHTML = `
                 <thead class="bg-teal-600 rounded-t-xl">
                     <tr>
-                        <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white rounded-tl-xl">Time</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Flight</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">${currentType === 'arrivals' ? 'Origin' : currentType === 'departures' ? 'Destination' : 'City'}</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white hidden sm:table-cell">Airline</th>
-                        <th scope="col" class="py-3.5 pl-3 pr-4 text-center text-sm font-semibold text-white rounded-tr-xl">Status</th>
+                        <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white rounded-tl-xl">Time</th>
+                        <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">Flight</th>
+                        <th class="px-3 py-3.5 text-left text-sm font-semibold text-white">City</th>
+                        <th class="px-3 py-3.5 text-left text-sm font-semibold text-white hidden sm:table-cell">Airline</th>
+                        <th class="py-3.5 pl-3 pr-4 text-center text-sm font-semibold text-white rounded-tr-xl">Status</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 responsive-table">
-                    ${flights.map(flight => `
-                        <tr class="hover:bg-gray-50 transition duration-100">
-                            <td data-label="Scheduled Time" class="whitespace-nowrap py-3 pl-4 pr-3 text-sm font-semibold text-gray-900">${flight.scheduled}</td>
-                            <td data-label="Flight" class="whitespace-nowrap px-3 py-3 text-sm text-gray-700">
-                                <span class="font-bold">${flight.flightNo}</span>
-                                <span class="block sm:hidden text-xs text-gray-500">${flight.airline}</span>
-                            </td>
-                            <td data-label="${currentType === 'arrivals' ? 'Origin' : currentType === 'departures' ? 'Destination' : 'City'}" class="whitespace-nowrap px-3 py-3 text-sm text-gray-700">${flight.city}</td>
-                            <td data-label="Airline" class="whitespace-nowrap px-3 py-3 text-sm text-gray-500 hidden sm:table-cell">${flight.airline}</td>
-                            <td data-label="Status" class="whitespace-nowrap py-3 pl-3 pr-4 text-sm font-medium text-center">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full p-1 shadow-sm ${getStatusClass(flight.status)}">
-                                    ${flight.status}
-                                </span>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            `;
+                    ${flights.map(f => `
+                        <tr class="hover:bg-gray-50 transition">
+                            <td data-label="Time" class="whitespace-nowrap py-3 pl-4 pr-3 text-sm font-semibold text-gray-900">${new Date(f.scheduled).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                            <td data-label="Flight" class="whitespace-nowrap px-3 py-3 text-sm text-gray-700 font-bold">${f.flightNo}</td>
+                            <td data-label="City" class="whitespace-nowrap px-3 py-3 text-sm text-gray-700">${f.city}</td>
+                            <td data-label="Airline" class="whitespace-nowrap px-3 py-3 text-sm text-gray-500 hidden sm:table-cell">${f.airline}</td>
+                            <td data-label="Status" class="whitespace-nowrap py-3 pl-3 pr-4 text-sm text-center"><span class="px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(f.status)}">${f.status}</span></td>
+                        </tr>`).join('')}
+                </tbody>`;
             container.insertBefore(table, updatedElement);
         }
 
-        /**
-         * Handles the click event for the tab buttons.
-         */
-        function handleTabClick(event) {
-            const newType = event.currentTarget.getAttribute('data-type');
-            if (newType === currentType) return;
-
-            // Update visual state of tabs
-            tabButtons.forEach(btn => {
-                btn.classList.remove('active-tab', 'border-teal-600', 'text-teal-600');
-                btn.classList.add('border-transparent', 'text-gray-600');
-            });
-            event.currentTarget.classList.add('active-tab', 'border-teal-600', 'text-teal-600');
-
-            // Update data state and fetch
-            currentType = newType;
+        tabButtons.forEach(btn => btn.addEventListener('click', (e) => {
+            if (e.target.dataset.type === currentType) return;
+            tabButtons.forEach(b => { b.classList.remove('active-tab', 'border-teal-600', 'text-teal-600'); b.classList.add('border-transparent', 'text-gray-600'); });
+            e.target.classList.add('active-tab', 'border-teal-600', 'text-teal-600');
+            currentType = e.target.dataset.type;
             fetchData();
-        }
+        }));
 
-        // --- Event Listeners and Initializers ---
-
-        // Initial tab styling
-        document.querySelector('.active-tab').classList.add('border-teal-600', 'text-teal-600');
-
-        // Tab click handlers
-        tabButtons.forEach(button => {
-            button.addEventListener('click', handleTabClick);
-        });
-
-        // Refresh button handler
         refreshButton.addEventListener('click', refreshData);
-
-        // Initial data load
-        // Only run this when the entire document is loaded
-        window.addEventListener('load', () => {
-             fetchData();
-             // Setup auto-refresh
-             setInterval(refreshData, AUTO_REFRESH_INTERVAL_MS);
-        });
-        
+        window.addEventListener('load', fetchData);
     </script>
 </body>
 </html>

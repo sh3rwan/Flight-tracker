@@ -70,22 +70,19 @@
                 Erbil Flight Status
             </h1>
             <button id="refresh-button" class="bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-300 transform hover:scale-105 disabled:opacity-50 flex items-center">
-                <!-- Refresh Icon (Hidden initially, shown during fetching) -->
                 <svg id="refresh-icon" class="w-5 h-5 mr-2 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0014 4h-1.581m0 0l-1.581 1.581M10 20v-5h-.582m-15.356-2A8.001 8.001 0 0010 20h1.581m0 0l1.581-1.581" />
                 </svg>
-                <!-- Static Icon (Shown when not fetching) -->
                 <svg id="static-icon" class="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M4 20h5M20 4h-5" />
                 </svg>
-                <span id="btn-text">Refresh</span>
+                Refresh
             </button>
         </div>
 
         <!-- Tab Controls -->
         <div class="flex border-b border-gray-300 mb-4 space-x-2 sm:space-x-4">
-            <button data-type="all" class="tab-button py-2 px-3 sm:px-4 text-sm font-medium transition duration-150 border-b-2 border-transparent text-teal-600 border-teal-600 active-tab">
+            <button data-type="all" class="tab-button py-2 px-3 sm:px-4 text-sm font-medium transition duration-150 border-b-2 border-transparent text-gray-600 hover:text-teal-600 active-tab">
                 All Flights
             </button>
             <button data-type="arrivals" class="tab-button py-2 px-3 sm:px-4 text-sm font-medium transition duration-150 border-b-2 border-transparent text-gray-600 hover:text-teal-600">
@@ -109,7 +106,7 @@
             
             <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl relative">
                 <strong class="font-bold">Error!</strong>
-                <span class="block sm:inline" id="error-details"></span>
+                <span class="block sm:inline" id="error-details">Could not connect to the flight data server. Please try refreshing.</span>
             </div>
 
             <div id="last-updated" class="text-xs text-gray-500 mt-4 text-right hidden"></div>
@@ -118,11 +115,10 @@
     </div>
 
     <script>
-        // ---------------- CONFIGURATION ----------------
-        // The Vercel API endpoint base URL
-        const API_BASE_URL = 'https://erbil-api.vercel.app/api'; 
-        const AUTO_REFRESH_INTERVAL_MS = 300000; // 5 minutes (300,000 ms)
-        // -----------------------------------------------
+        // --- Configuration ---
+        // !!! IMPORTANT: CHANGE THIS TO YOUR DEPLOYED BACKEND URL (e.g., https://your-app.vercel.app/api/flights) !!!
+        const API_BASE_URL = 'https://erbil-api.vercel.app/'; 
+        const AUTO_REFRESH_INTERVAL_MS = 300000; // 5 minutes
 
         // --- DOM Elements ---
         const container = document.getElementById('flight-list-container');
@@ -132,12 +128,12 @@
         const refreshButton = document.getElementById('refresh-button');
         const refreshIcon = document.getElementById('refresh-icon');
         const staticIcon = document.getElementById('static-icon');
-        const btnText = document.getElementById('btn-text');
         const updatedElement = document.getElementById('last-updated');
         const tabButtons = document.querySelectorAll('.tab-button');
 
         // --- State ---
         let currentType = 'all'; // 'all', 'arrivals', 'departures'
+        let cachedFlights = [];
         let isFetching = false;
         
         // --- Utility Functions ---
@@ -152,6 +148,31 @@
             return 'status-scheduled';
         };
 
+        /** Formats date/time for display */
+        const formatTime = (isoString) => {
+            if (!isoString) return 'N/A';
+            try {
+                const date = new Date(isoString);
+                // Extract only the HH:MM time portion
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return 'N/A';
+            }
+        };
+        
+        // Update: The flight objects coming from the backend now contain the scheduled time as an ISO string.
+        // We need to re-parse and display the time correctly from the ISO string, not just the raw string content.
+        const getDisplayTime = (isoString) => {
+            if (!isoString) return 'N/A';
+            try {
+                const date = new Date(isoString);
+                // Display the time only
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return 'N/A';
+            }
+        };
+
         /**
          * Generic function for API calls with Exponential Backoff
          */
@@ -160,17 +181,15 @@
                 try {
                     const response = await fetch(url, options);
                     if (!response.ok) {
-                        // Throw error if response status is 4xx or 5xx
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     return response.json();
                 } catch (error) {
                     if (i < maxRetries - 1) {
-                        // Exponential backoff delay (1s, 2s, 4s, ...)
                         const delay = Math.pow(2, i) * 1000;
+                        // console.log(`Retrying fetch for ${url}. Attempt ${i + 2}/${maxRetries} after ${delay}ms delay.`);
                         await new Promise(resolve => setTimeout(resolve, delay));
                     } else {
-                        // Throw the final error if max retries are reached
                         throw error;
                     }
                 }
@@ -181,7 +200,7 @@
         // --- Core Logic ---
 
         /**
-         * Fetches flight data from the proxy server (GET request).
+         * Fetches flight data from the proxy server.
          */
         async function fetchData() {
             if (isFetching) return;
@@ -191,77 +210,62 @@
             refreshButton.disabled = true;
             refreshIcon.classList.remove('hidden');
             staticIcon.classList.add('hidden');
-            btnText.textContent = 'Loading...';
 
             try {
-                const endpoint = currentType === 'all' ? '/flights' : `/flights/${currentType}`;
+                const endpoint = currentType === 'all' ? '' : `/${currentType}`;
                 const data = await fetchWithRetry(`${API_BASE_URL}${endpoint}`);
                 
+                cachedFlights = data.flights || [];
                 const lastFetchedTime = data.lastFetched ? new Date(data.lastFetched) : null;
                 
-                renderTable(data.flights || [], lastFetchedTime);
+                renderTable(cachedFlights, lastFetchedTime);
 
             } catch (error) {
                 console.error("Fetch Data Error:", error);
-                errorDetails.textContent = `Could not load flight data. The server might be down or misconfigured. (Check browser console for details: ${error.message})`;
+                errorDetails.textContent = `Could not load flight data. The server might be down or misconfigured. (${error.message})`;
                 errorContainer.classList.remove('hidden');
-                
-                // Clear old table if error occurs
-                container.querySelectorAll('table, .no-data').forEach(el => el.remove());
+                // Ensure only one instance of the table/loading/error exists
+                container.innerHTML = ''; 
+                container.appendChild(loadingIndicator);
+                container.appendChild(errorContainer);
+                container.appendChild(updatedElement);
+                loadingIndicator.classList.add('hidden'); // Hide loading on error
             } finally {
                 isFetching = false;
-                loadingIndicator.classList.add('hidden');
                 refreshButton.disabled = false;
                 refreshIcon.classList.add('hidden');
                 staticIcon.classList.remove('hidden');
-                btnText.textContent = 'Refresh';
             }
         }
 
         /**
-         * Attempts to force the backend to refresh its cached data (POST), and falls back 
-         * to a simple fetch (GET) if the force refresh fails.
+         * Forces the backend to refresh its cached data and then fetches the new data.
          */
         async function refreshData() {
             if (isFetching) return;
-            
             isFetching = true;
             refreshButton.disabled = true;
             refreshIcon.classList.remove('hidden');
             staticIcon.classList.add('hidden');
-            btnText.textContent = 'Refreshing...';
-            errorContainer.classList.add('hidden');
-
-            const refreshUrl = `${API_BASE_URL}/flights/refresh`; 
 
             try {
-                // 1. Attempt to force refresh (POST)
-                console.log("Attempting POST refresh...");
-                await fetchWithRetry(refreshUrl, { method: 'POST' });
-                console.log("POST refresh successful. Fetching new data.");
+                // 1. Trigger backend refresh. We must use the base URL and append /refresh.
+                // This logic is crucial because the API_BASE_URL might be '.../flights' or '.../flights/'.
+                const refreshUrl = `${API_BASE_URL.replace(/\/$/, '')}/refresh`;
 
+                await fetchWithRetry(refreshUrl, { method: 'POST' });
+                
                 // 2. Fetch the newly refreshed data
                 await fetchData();
-            } catch (postError) {
-                console.warn(`POST Refresh failed (${postError.message}). Falling back to a standard GET fetch.`);
-                
-                // Show a transient warning about the POST failure, but then proceed with GET
-                errorDetails.textContent = `Warning: Automatic data refresh (POST) failed due to a server timeout. Displaying the latest cached data instead.`;
+            } catch (error) {
+                console.error("Refresh Data Error:", error);
+                errorDetails.textContent = `Failed to force refresh. Backend server might be unreachable. (${error.message})`;
                 errorContainer.classList.remove('hidden');
-
-                // 3. Fallback: Fetch the data using a GET request (fetchData uses GET)
-                // This GET request is usually much faster and more reliable than the initial POST.
-                await fetchData();
             } finally {
-                // Re-enable the button and hide the spinner, even if the fallback was used.
                 isFetching = false;
                 refreshButton.disabled = false;
                 refreshIcon.classList.add('hidden');
                 staticIcon.classList.remove('hidden');
-                btnText.textContent = 'Refresh';
-                
-                // Hide the fallback warning after 5 seconds
-                setTimeout(() => errorContainer.classList.add('hidden'), 5000);
             }
         }
 
@@ -272,9 +276,15 @@
          */
         function renderTable(flights, lastFetchedTime) {
             
-            // Clear only the table/no-data elements
-            container.querySelectorAll('table, .no-data').forEach(el => el.remove());
-
+            // Clear all non-essential children (i.e., the table if it exists)
+            const removableChildren = Array.from(container.children).filter(child => 
+                child.id !== 'loading-indicator' && child.id !== 'error-message' && child.id !== 'last-updated'
+            );
+            removableChildren.forEach(child => container.removeChild(child));
+            
+            // Ensure essential components are hidden/shown correctly
+            loadingIndicator.classList.add('hidden');
+            errorContainer.classList.add('hidden');
             updatedElement.classList.remove('hidden');
 
             if (lastFetchedTime) {
@@ -285,14 +295,11 @@
 
             if (flights.length === 0) {
                 const noData = document.createElement('div');
-                noData.className = 'no-data text-center py-10 text-gray-500 bg-white/50 rounded-xl';
+                noData.className = 'text-center py-10 text-gray-500 bg-white/50 rounded-xl';
                 noData.textContent = `No ${currentType !== 'all' ? currentType : ''} flights available right now.`;
                 container.insertBefore(noData, updatedElement);
                 return;
             }
-            
-            // Determine header text dynamically
-            const cityHeader = currentType === 'arrivals' ? 'Origin' : currentType === 'departures' ? 'Destination' : 'City';
 
             const table = document.createElement('table');
             table.className = 'min-w-full divide-y divide-gray-300 bg-white rounded-xl shadow-lg';
@@ -301,7 +308,7 @@
                     <tr>
                         <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white rounded-tl-xl">Time</th>
                         <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Flight</th>
-                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">${cityHeader}</th>
+                        <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">${currentType === 'arrivals' ? 'Origin' : currentType === 'departures' ? 'Destination' : 'City'}</th>
                         <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white hidden sm:table-cell">Airline</th>
                         <th scope="col" class="py-3.5 pl-3 pr-4 text-center text-sm font-semibold text-white rounded-tr-xl">Status</th>
                     </tr>
@@ -309,12 +316,13 @@
                 <tbody class="divide-y divide-gray-200 responsive-table">
                     ${flights.map(flight => `
                         <tr class="hover:bg-gray-50 transition duration-100">
-                            <td data-label="Scheduled Time" class="whitespace-nowrap py-3 pl-4 pr-3 text-sm font-semibold text-gray-900">${new Date(flight.scheduled).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                            <!-- Use the utility function to correctly parse and display time from ISO string -->
+                            <td data-label="Scheduled Time" class="whitespace-nowrap py-3 pl-4 pr-3 text-sm font-semibold text-gray-900">${getDisplayTime(flight.scheduled)}</td>
                             <td data-label="Flight" class="whitespace-nowrap px-3 py-3 text-sm text-gray-700">
                                 <span class="font-bold">${flight.flightNo}</span>
                                 <span class="block sm:hidden text-xs text-gray-500">${flight.airline}</span>
                             </td>
-                            <td data-label="${cityHeader}" class="whitespace-nowrap px-3 py-3 text-sm text-gray-700">${flight.city}</td>
+                            <td data-label="${currentType === 'arrivals' ? 'Origin' : currentType === 'departures' ? 'Destination' : 'City'}" class="whitespace-nowrap px-3 py-3 text-sm text-gray-700">${flight.city}</td>
                             <td data-label="Airline" class="whitespace-nowrap px-3 py-3 text-sm text-gray-500 hidden sm:table-cell">${flight.airline}</td>
                             <td data-label="Status" class="whitespace-nowrap py-3 pl-3 pr-4 text-sm font-medium text-center">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full p-1 shadow-sm ${getStatusClass(flight.status)}">
@@ -350,7 +358,11 @@
         // --- Event Listeners and Initializers ---
 
         // Initial tab styling
-        document.querySelector('.active-tab').classList.add('border-teal-600', 'text-teal-600');
+        // Ensure 'all' tab is active on load
+        const initialTab = document.querySelector('.tab-button[data-type="all"]');
+        if (initialTab) {
+            initialTab.classList.add('active-tab', 'border-teal-600', 'text-teal-600');
+        }
 
         // Tab click handlers
         tabButtons.forEach(button => {
@@ -360,11 +372,12 @@
         // Refresh button handler
         refreshButton.addEventListener('click', refreshData);
 
-        // Initial data load (using the GET endpoint)
-        window.addEventListener('load', fetchData);
+        // Initial data load
+        fetchData();
 
-        // Setup auto-refresh (using the more aggressive refresh method)
+        // Setup auto-refresh
         setInterval(refreshData, AUTO_REFRESH_INTERVAL_MS);
+        
     </script>
 </body>
 </html>

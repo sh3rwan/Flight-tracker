@@ -47,7 +47,7 @@
 
     <script>
         // ---------------- CONFIGURATION ----------------
-        // This includes the full path to your API
+        // This is the Vercel API endpoint
         const API_BASE_URL = 'https://erbil-api.vercel.app/api/flights'; 
         // -----------------------------------------------
 
@@ -77,15 +77,19 @@
             try {
                 const endpoint = currentType === 'all' ? '' : `/${currentType}`;
                 const res = await fetch(`${API_BASE_URL}${endpoint}`);
-                if (!res.ok) throw new Error(`Server returned ${res.status}`);
+                
+                if (!res.ok) {
+                    throw new Error(`Server responded with status ${res.status}.`);
+                }
+                
                 const data = await res.json();
                 renderTable(data.flights || [], data.lastFetched ? new Date(data.lastFetched) : null);
             } catch (error) {
-                console.error(error);
-                errorContainer.textContent = `Error: ${error.message}. Is the server running?`;
+                console.error("Fetch Error:", error);
+                errorContainer.textContent = `Error! Could not load flight data. The server might be down or misconfigured. (${error.message})`;
                 errorContainer.classList.remove('hidden');
-                container.appendChild(errorContainer); // Ensure error is visible
-                // Hide table if error
+                
+                // Hide table if error occurs
                 const oldTable = container.querySelector('table');
                 if(oldTable) oldTable.remove();
             } finally {
@@ -96,19 +100,35 @@
         }
 
         async function refreshData() {
+            refreshButton.disabled = true;
+            refreshButton.textContent = 'Refreshing...';
+            errorContainer.classList.add('hidden');
+
             try {
-                // Determine refresh URL correctly
-                const refreshUrl = API_BASE_URL.endsWith('/flights') 
-                    ? API_BASE_URL.replace('/flights', '/flights/refresh') 
-                    : `${API_BASE_URL}/refresh`;
+                // Determine refresh URL (e.g., https://erbil-api.vercel.app/api/flights/refresh)
+                const refreshUrl = API_BASE_URL.replace('/flights', '/flights/refresh'); 
                 
-                await fetch(refreshUrl, { method: 'POST' });
+                const response = await fetch(refreshUrl, { method: 'POST' });
+                
+                if (!response.ok) {
+                     // Check if it's a cold start/sleep issue
+                    throw new Error(`Refresh failed with status ${response.status}. Try refreshing the page in a few seconds.`);
+                }
+                
+                // Refresh successful, now fetch the new data
                 await fetchData();
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                console.error("Force Refresh Error:", e);
+                errorContainer.textContent = `Error! Failed to force refresh. Backend server might be unreachable. (${e.message})`;
+                errorContainer.classList.remove('hidden');
+            } finally {
+                refreshButton.disabled = false;
+                refreshButton.textContent = 'Refresh';
+            }
         }
 
         function renderTable(flights, lastFetchedTime) {
-            // Remove old table/messages
+            // Remove old content
             container.querySelectorAll('table, .no-data').forEach(el => el.remove());
             updatedElement.classList.remove('hidden');
 
@@ -147,9 +167,13 @@
             container.insertBefore(table, updatedElement);
         }
 
+        // --- Event Listeners ---
         tabButtons.forEach(btn => btn.addEventListener('click', (e) => {
             if (e.target.dataset.type === currentType) return;
-            tabButtons.forEach(b => { b.classList.remove('active-tab', 'border-teal-600', 'text-teal-600'); b.classList.add('border-transparent', 'text-gray-600'); });
+            tabButtons.forEach(b => { 
+                b.classList.remove('active-tab', 'border-teal-600', 'text-teal-600'); 
+                b.classList.add('border-transparent', 'text-gray-600'); 
+            });
             e.target.classList.add('active-tab', 'border-teal-600', 'text-teal-600');
             currentType = e.target.dataset.type;
             fetchData();

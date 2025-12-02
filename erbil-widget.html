@@ -119,8 +119,8 @@
 
     <script>
         // ---------------- CONFIGURATION ----------------
-        // This is the Vercel API endpoint
-        const API_BASE_URL = 'https://erbil-api.vercel.app/api/flights'; 
+        // The Vercel API endpoint base URL
+        const API_BASE_URL = 'https://erbil-api.vercel.app/api'; 
         const AUTO_REFRESH_INTERVAL_MS = 300000; // 5 minutes (300,000 ms)
         // -----------------------------------------------
 
@@ -160,6 +160,7 @@
                 try {
                     const response = await fetch(url, options);
                     if (!response.ok) {
+                        // Throw error if response status is 4xx or 5xx
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     return response.json();
@@ -180,7 +181,7 @@
         // --- Core Logic ---
 
         /**
-         * Fetches flight data from the proxy server.
+         * Fetches flight data from the proxy server (GET request).
          */
         async function fetchData() {
             if (isFetching) return;
@@ -193,7 +194,7 @@
             btnText.textContent = 'Loading...';
 
             try {
-                const endpoint = currentType === 'all' ? '' : `/${currentType}`;
+                const endpoint = currentType === 'all' ? '/flights' : `/flights/${currentType}`;
                 const data = await fetchWithRetry(`${API_BASE_URL}${endpoint}`);
                 
                 const lastFetchedTime = data.lastFetched ? new Date(data.lastFetched) : null;
@@ -218,10 +219,12 @@
         }
 
         /**
-         * Forces the backend to refresh its cached data and then fetches the new data.
+         * Attempts to force the backend to refresh its cached data (POST), and falls back 
+         * to a simple fetch (GET) if the force refresh fails.
          */
         async function refreshData() {
             if (isFetching) return;
+            
             isFetching = true;
             refreshButton.disabled = true;
             refreshIcon.classList.remove('hidden');
@@ -229,24 +232,36 @@
             btnText.textContent = 'Refreshing...';
             errorContainer.classList.add('hidden');
 
+            const refreshUrl = `${API_BASE_URL}/flights/refresh`; 
+
             try {
-                // 1. Trigger backend refresh.
-                const refreshUrl = API_BASE_URL.replace('/flights', '/flights/refresh'); 
-                
+                // 1. Attempt to force refresh (POST)
+                console.log("Attempting POST refresh...");
                 await fetchWithRetry(refreshUrl, { method: 'POST' });
-                
+                console.log("POST refresh successful. Fetching new data.");
+
                 // 2. Fetch the newly refreshed data
                 await fetchData();
-            } catch (error) {
-                console.error("Refresh Data Error:", error);
-                errorDetails.textContent = `Failed to force refresh. Backend server might be unreachable or timed out. (${error.message})`;
+            } catch (postError) {
+                console.warn(`POST Refresh failed (${postError.message}). Falling back to a standard GET fetch.`);
+                
+                // Show a transient warning about the POST failure, but then proceed with GET
+                errorDetails.textContent = `Warning: Automatic data refresh (POST) failed due to a server timeout. Displaying the latest cached data instead.`;
                 errorContainer.classList.remove('hidden');
+
+                // 3. Fallback: Fetch the data using a GET request (fetchData uses GET)
+                // This GET request is usually much faster and more reliable than the initial POST.
+                await fetchData();
             } finally {
+                // Re-enable the button and hide the spinner, even if the fallback was used.
                 isFetching = false;
                 refreshButton.disabled = false;
                 refreshIcon.classList.add('hidden');
                 staticIcon.classList.remove('hidden');
                 btnText.textContent = 'Refresh';
+                
+                // Hide the fallback warning after 5 seconds
+                setTimeout(() => errorContainer.classList.add('hidden'), 5000);
             }
         }
 
@@ -335,7 +350,6 @@
         // --- Event Listeners and Initializers ---
 
         // Initial tab styling
-        // Note: The HTML is already set to 'all' as active, we just ensure the classes are correct on load
         document.querySelector('.active-tab').classList.add('border-teal-600', 'text-teal-600');
 
         // Tab click handlers
@@ -346,10 +360,10 @@
         // Refresh button handler
         refreshButton.addEventListener('click', refreshData);
 
-        // Initial data load
+        // Initial data load (using the GET endpoint)
         window.addEventListener('load', fetchData);
 
-        // Setup auto-refresh
+        // Setup auto-refresh (using the more aggressive refresh method)
         setInterval(refreshData, AUTO_REFRESH_INTERVAL_MS);
     </script>
 </body>

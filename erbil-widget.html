@@ -116,8 +116,8 @@
 
     <script>
         // --- Configuration ---
-        // !!! IMPORTANT: CHANGE THIS TO YOUR DEPLOYED BACKEND URL (e.g., https://your-app.vercel.app/api/flights) !!!
-        const API_BASE_URL = 'https://erbil-api.vercel.app/'; 
+        // !!! IMPORTANT: THIS MUST BE YOUR LIVE VERCELL API URL FOR PRODUCTION DEPLOYMENTS !!!
+        const API_BASE_URL = 'https://erbil-api.vercel.app/api/flights'; 
         const AUTO_REFRESH_INTERVAL_MS = 300000; // 5 minutes
 
         // --- DOM Elements ---
@@ -180,8 +180,10 @@
             for (let i = 0; i < maxRetries; i++) {
                 try {
                     const response = await fetch(url, options);
+                    // Check for network errors or bad response status
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        // Throw a specific error if the status is 500 or similar
+                        throw new Error(`HTTP error! Status: ${response.status}. Please check Vercel logs.`);
                     }
                     return response.json();
                 } catch (error) {
@@ -222,7 +224,8 @@
 
             } catch (error) {
                 console.error("Fetch Data Error:", error);
-                errorDetails.textContent = `Could not load flight data. The server might be down or misconfigured. (${error.message})`;
+                // Display a more helpful message based on the known CORS issue/network failure
+                errorDetails.textContent = `Could not load flight data from API. Possible CORS error or server issue. Details: (${error.message})`;
                 errorContainer.classList.remove('hidden');
                 // Ensure only one instance of the table/loading/error exists
                 container.innerHTML = ''; 
